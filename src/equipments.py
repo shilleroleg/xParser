@@ -49,6 +49,7 @@ class BaseEquipment(ABC):
     def __init__(self, xml: XmlReader):
         self.xml = xml
         self.tables_list = []
+        self.final_table = pd.DataFrame()
 
     def run(self) -> pd.DataFrame:
         """По набору тэгов собирает информацию об оборудовании"""
@@ -56,9 +57,9 @@ class BaseEquipment(ABC):
         table_dict = self.xml.get_data_by_list(self.tables_list)
 
         # Объединяем все таблицы
-        full_df = self.join_table(table_dict)
+        self.final_table = self.join_table(table_dict)
 
-        return full_df
+        return self.final_table
 
     @staticmethod
     def check_structure_xml(df: pd.DataFrame, columns_list: list[str]) -> pd.DataFrame:
@@ -77,7 +78,7 @@ class BaseEquipment(ABC):
         pass
 
     @abstractmethod
-    def save_table(self, df: pd.DataFrame, f_name: str):
+    def save_table(self, f_name: str):
         pass
 
 
@@ -89,18 +90,18 @@ class Breaker(BaseEquipment):
                             'Bay', 'VoltageLevel', 'Substation', 'Manufacturer', 'Organisation', 'ProductAssetModel',
                             'Terminal'
                             # , 'ConnectivityNode'
-                           ]
+                            ]
 
     def join_table(self, table_dict: dict[str: pd.DataFrame]) -> pd.DataFrame:
         # Разбор df с проверкой структуры
         breaker = self.check_structure_xml(table_dict.get('Breaker'), ib.breaker_columns)
         breaker_info = self.check_structure_xml(table_dict.get('BreakerInfo'), ib.breaker_info_columns)
         asset = self.check_structure_xml(table_dict.get('Asset'), ib.asset_columns)
-        operational_limit_set = self.check_structure_xml(table_dict.get('OperationalLimitSet'),
-                                                         ib.operational_limit_set_columns)
-
-        current_limit = table_dict.get('CurrentLimit')
-        voltage_limit = table_dict.get('VoltageLimit')
+        # operational_limit_set = self.check_structure_xml(table_dict.get('OperationalLimitSet'),
+        #                                                  ib.operational_limit_set_columns)
+        #
+        # current_limit = table_dict.get('CurrentLimit')
+        # voltage_limit = table_dict.get('VoltageLimit')
 
         bay = self.check_structure_xml(table_dict.get('Bay'), ib.bay_columns)
         voltage_level = self.check_structure_xml(table_dict.get('VoltageLevel'), ib.voltage_level_columns)
@@ -111,8 +112,6 @@ class Breaker(BaseEquipment):
         terminal = self.check_structure_xml(table_dict.get('Terminal'), ib.terminal_columns)
         # connectivity_node = self.check_structure_xml(table_dict.get('ConnectivityNode'), connectivity_node_columns)
 
-        # Ошибка структуры xml !!!11
-        # try:
         out_df = (breaker
                   .merge(bay[ib.bay_columns],
                          left_on='Equipment.EquipmentContainer', right_on='bay_mRID',
@@ -127,21 +126,38 @@ class Breaker(BaseEquipment):
                          left_on='VoltageLevel.BaseVoltage', right_on='mRID',
                          how='left', suffixes=('_subst', '_base_v'))
                   )
-        # except KeyError as e:
-        #     m = re.search("'([^']*)'", e.args[0])
-        #     key = m.group(1)
-        #     print(key)
 
         out_df = (out_df
                   .merge(asset[ib.asset_columns],
                          left_on='PowerSystemResource.Assets', right_on='asset_mRID',
                          how='left', suffixes=('_base_v', '_asset'))
+                  .merge(product_asset_model[ib.product_asset_model_columns],
+                         left_on='Asset.ProductAssetModel', right_on='productassetmodel_mRID',
+                         how='left', suffixes=('_asset', '_pam'))
+                  .merge(manufacturer[ib.manufacturer_columns],
+                         left_on='ProductAssetModel.Manufacturer', right_on='manufacturer_mRID',
+                         how='left', suffixes=('_pam', '_manufact'))
+                  .merge(organisation[ib.organisation_columns],
+                         left_on='OrganisationRole.Organisation', right_on='organisation_mRID',
+                         how='left', suffixes=('_manufact', '_org'))
+                  .merge(breaker_info[ib.breaker_info_columns],
+                         left_on='Asset.AssetInfo', right_on='breakerinfo_mRID',
+                         how='left', suffixes=('_org', '_info'))
+                  )
+
+        out_df = (out_df
+                  .merge(terminal[ib.terminal_columns],
+                         left_on='ConductingEquipment.Terminals', right_on='terminal_mRID',
+                         how='left', suffixes=('_info', '_t1'))
+                  .merge(terminal[ib.terminal_columns],
+                         left_on='ConductingEquipment.Terminals_2', right_on='terminal_mRID',
+                         how='left', suffixes=('_t1', '_t2'))
                   )
 
         return out_df
 
-    def save_table(self, df: pd.DataFrame, f_name: str):
-        dfc = df.copy()
+    def save_table(self, f_name: str):
+        dfc = self.final_table.copy()
 
         dfc['Дата получения'] = pd.Timestamp.today()
         dfc['Дата ответа'] = pd.Timestamp.today() + pd.DateOffset(days=10)
@@ -150,9 +166,6 @@ class Breaker(BaseEquipment):
             'IdentifiedObject.name_br': 'Наименование выключателя',
             'IdentifiedObject.name_bay': 'Наименование цепи',
         }
-
-        # Нет Данных
-
         dfc_renamed = dfc.rename(columns=rename_columns)
 
         file_name = f_name.rsplit("\\", 1)[1].rsplit(".", 1)[0]

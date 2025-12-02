@@ -1,7 +1,8 @@
+import re
 import sys
 
 import pandas as pd
-import chardet
+# import chardet
 import xml.etree.ElementTree as ET
 
 from tools.logger import log
@@ -11,24 +12,25 @@ class XmlReader:
 
     def __init__(self, f_name: str):
         self.f_name = f_name
+        # Читаем xml из файла
+        self.xml_txt = self._read_file()
         # Регистрируем пространства имен
-        self.namespaces = {
-            'cim': 'http://iec.ch/TC57/2014/CIM-schema-cim16#',
-            'rdf': 'http://www.w3.org/1999/02/22-rdf-syntax-ns#'
-        }
+        self.namespaces = self._get_namespace()
         # Парсим XML
-        self.root = self.get_root()
+        self.root = self._get_root()
 
-    def read_file(self) -> str:
+    def _read_file(self) -> str:
         """Читает текстовый файл с автоматическим определенитем кодировки.
         Возвращает текст из файла."""
 
         log.info(f'Читаем xml-файл {self.f_name}')
-        # Определяем кодировку файла
-        with open(self.f_name, 'rb') as file:
-            raw = file.read(32)
-            encoding = chardet.detect(raw)['encoding']
-        log.info(f'Кодировка файла {encoding}')
+        # # Определяем кодировку файла
+        # with open(self.f_name, 'rb') as file:
+        #     raw = file.read(32)
+        #     encoding = chardet.detect(raw)['encoding']
+        # log.info(f'Кодировка файла {encoding}')
+
+        encoding = 'UTF-8-SIG'
 
         try:
             with open(self.f_name, "r", encoding=encoding) as file:
@@ -43,12 +45,32 @@ class XmlReader:
 
         return content
 
-    def get_root(self) -> ET.Element:
+    def _get_namespace(self) -> dict[str: str]:
+        namespaces = {}
+
+        # Шаблон для поиска xmlns:prefix="uri"
+        pattern = r'xmlns:([^=]+)="([^"]+)"'
+
+        # Находим все совпадения
+        matches = re.findall(pattern, self.xml_txt)
+
+        for prefix, uri in matches:
+            namespaces[prefix] = uri
+
+        # Также ищем default namespace (без префикса)
+        default_pattern = r'xmlns="([^"]+)"'
+        default_matches = re.findall(default_pattern, self.xml_txt)
+
+        if default_matches:
+            namespaces[''] = default_matches[0]  # Пустая строка для default
+
+        return namespaces
+
+    def _get_root(self) -> ET.Element:
         """Разбор XML"""
-        xml_txt = self.read_file()
+        log.info('Разбор xml')
         try:
-            log.info('Разбор xml')
-            root = ET.fromstring(xml_txt)
+            root = ET.fromstring(self.xml_txt)
             log.info('Разбор xml успешно завершен')
         except Exception as e:
             log.error(f"Разбор xml завершился с ошибкой: {e}")
@@ -74,7 +96,8 @@ class XmlReader:
         data = []
 
         # Находим все элементы тэга
-        equipments = self.root.findall(f'.//cim:{parent_tag}', self.namespaces)
+        # equipments = self.root.findall(f'.//cim:{parent_tag}', self.namespaces)
+        equipments = self.root.findall(f'{{*}}{parent_tag}')
 
         for equipment in equipments:
             equipment_data = {}
