@@ -3,46 +3,11 @@ from abc import ABC, abstractmethod
 from datetime import datetime
 
 import pandas as pd
+import numpy as np
 
 from xml_reader import XmlReader
-from ideal_equipments import ideal_breaker as ib
+from ideal_equipments import *
 from tools.logger import log
-
-
-base_voltage_data = dict(mRID=['10000643-0000-0000-c000-0000006d746c', '1000068b-0000-0000-c000-0000006d746c',
-                               '10000679-0000-0000-c000-0000006d746c', '77ffe719-31e0-4297-a320-58daaf45692a',
-                               '1000066d-0000-0000-c000-0000006d746c', '1000066e-0000-0000-c000-0000006d746c',
-                               '1000065c-0000-0000-c000-0000006d746c', '10000655-0000-0000-c000-0000006d746c',
-                               '10000649-0000-0000-c000-0000006d746c', '1000063d-0000-0000-c000-0000006d746c',
-                               '10000691-0000-0000-c000-0000006d746c', '3b1ca0c1-2eca-4b2e-b2e6-fcdb2dfec10a',
-                               'e496e8ef-4ce8-4da5-8fbb-bcfb9097d9d1', '10000680-0000-0000-c000-0000006d746c',
-                               '10000662-0000-0000-c000-0000006d746c', 'd1d0fee8-9a16-4fde-88ec-e300bf1ce4c2',
-                               '10000619-0000-0000-c000-0000006d746c', '10000613-0000-0000-c000-0000006d746c',
-                               '1000064f-0000-0000-c000-0000006d746c', 'e20d983f-4499-4fc9-896e-b9b46bc16c21',
-                               '10000601-0000-0000-c000-0000006d746c', '100005fb-0000-0000-c000-0000006d746c',
-                               '100012eb-0000-0000-c000-0000006d746c', '100005f5-0000-0000-c000-0000006d746c',
-                               '100005ef-0000-0000-c000-0000006d746c', '100005e9-0000-0000-c000-0000006d746c',
-                               '10000637-0000-0000-c000-0000006d746c', '1000062b-0000-0000-c000-0000006d746c',
-                               '10000625-0000-0000-c000-0000006d746c', '1000067f-0000-0000-c000-0000006d746c',
-                               '1000061f-0000-0000-c000-0000006d746c', '1000065b-0000-0000-c000-0000006d746c',
-                               'f8af8aae-f46d-487b-b97d-6d07e18486b7', '29d3607d-5171-4edf-bf59-1a18504d6eb9',
-                               '10000631-0000-0000-c000-0000006d746c', '0ab6ada6-096a-482d-bfa3-c195c4181eae',
-                               '10000697-0000-0000-c000-0000006d746c'],
-                         name=['1150 кВ', '750 кВ', '500 кВ', '±500 кВ', '400 кВ', '±400 кВ', '330 кВ', '220 кВ',
-                               '150 кВ', '110 кВ', '87 кВ', '85 кВ', '67 кВ', '60 кВ', '35 кВ', '30 кВ', '27,5 кВ',
-                               '24 кВ', '20 кВ', '19 кВ', '18 кВ', '15.75 кВ', '15 кВ', '13.8 кВ', '11 кВ', '10.5 кВ',
-                               '10 кВ', '6.6 кВ', '6.3 кВ', '6 кВ', '3.15 кВ', '3 кВ', '1 кВ', '0.66 кВ', '0.4 кВ',
-                               '0.3 кВ', 'Нейтраль'],
-                         nominalVoltage=[1150, 750, 500, 500, 400, 400, 330, 220, 150, 110, 87, 85, 67, 60, 35, 30,
-                                         27.5, 24, 20, 19, 18, 15.75, 15, 13.8, 11, 10.5, 10, 6.6, 6.3, 6, 3.15, 3, 1,
-                                         0.66, 0.4, 0.3, 0],
-                         isDC=['false', 'false', 'false', 'true', 'false', 'true', 'false', 'false', 'false', 'false',
-                               'false', 'true', 'false', 'false', 'false', 'false', 'false', 'false', 'false', 'false',
-                               'false', 'false', 'false', 'false', 'false', 'false', 'false', 'false', 'false', 'false',
-                               'false', 'false', 'false', 'false', 'false', 'false', 'false']
-                         )
-
-base_voltage = pd.DataFrame(data=base_voltage_data)
 
 
 class BaseEquipment(ABC):
@@ -61,17 +26,17 @@ class BaseEquipment(ABC):
 
         return self.final_table
 
-    @staticmethod
-    def check_structure_xml(df: pd.DataFrame, columns_list: list[str]) -> pd.DataFrame:
-        """Проверяет, что все нужные тэги есть в xml.
-        Если тэга нет, то заполняет его заглушкой"""
-
-        # Проверка, что все нужные тэги есть в xml
-        for column in columns_list:
-            if column not in df.columns:
-                df[column] = 'ОШИБКА структуры xml. Отсутствует аттрибут или связь.'
-
-        return df
+    # @staticmethod
+    # def check_structure_xml(df: pd.DataFrame, columns_list: list[str]) -> pd.DataFrame:
+    #     """Проверяет, что все нужные тэги есть в xml.
+    #     Если тэга нет, то заполняет его заглушкой"""
+    #
+    #     # Проверка, что все нужные тэги есть в xml
+    #     for column in columns_list:
+    #         if column not in df.columns:
+    #             df[column] = np.nan
+    #
+    #     return df
 
     @abstractmethod
     def join_table(self, table_dict: dict[str: pd.DataFrame]) -> pd.DataFrame:
@@ -93,66 +58,113 @@ class Breaker(BaseEquipment):
                             ]
 
     def join_table(self, table_dict: dict[str: pd.DataFrame]) -> pd.DataFrame:
-        # Разбор df с проверкой структуры
-        breaker = self.check_structure_xml(table_dict.get('Breaker'), ib.breaker_columns)
-        breaker_info = self.check_structure_xml(table_dict.get('BreakerInfo'), ib.breaker_info_columns)
-        asset = self.check_structure_xml(table_dict.get('Asset'), ib.asset_columns)
+        # Разбор df
+        base_voltage = BaseVoltageTag(base_voltage_df)
+
+        breaker = BreakerTag(table_dict.get('Breaker'))
+        breaker_info = BreakerInfoTag(table_dict.get('BreakerInfo'))
+        asset = AssetTag(table_dict.get('Asset'))
+        operational_limit_set = OperationalLimitSetTag(table_dict.get('OperationalLimitSet'))
+
+        current_limit = CurrentLimitTag(table_dict.get('CurrentLimit'))
+        voltage_limit = VoltageLimitTag(table_dict.get('VoltageLimit'))
+
+        bay = BayTag(table_dict.get('Bay'))
+        voltage_level = VoltageLevelTag(table_dict.get('VoltageLevel'))
+        substation = SubstationTag(table_dict.get('Substation'))
+        manufacturer = ManufacturerTag(table_dict.get('Manufacturer'))
+        organisation = OrganisationTag(table_dict.get('Organisation'))
+        product_asset_model = ProductAssetModelTag(table_dict.get('ProductAssetModel'))
+        terminal = TerminalTag(table_dict.get('Terminal'))
+
+        # breaker = self.check_structure_xml(table_dict.get('Breaker'), ib.breaker_columns)
+        # breaker_info = self.check_structure_xml(table_dict.get('BreakerInfo'), ib.breaker_info_columns)
+        # asset = self.check_structure_xml(table_dict.get('Asset'), ib.asset_columns)
         # operational_limit_set = self.check_structure_xml(table_dict.get('OperationalLimitSet'),
         #                                                  ib.operational_limit_set_columns)
+        # #
+        # # current_limit = table_dict.get('CurrentLimit')
+        # voltage_limit = self.check_structure_xml(table_dict.get('VoltageLimit'), ib.voltage_limit_columns)
         #
-        # current_limit = table_dict.get('CurrentLimit')
-        # voltage_limit = table_dict.get('VoltageLimit')
-
-        bay = self.check_structure_xml(table_dict.get('Bay'), ib.bay_columns)
-        voltage_level = self.check_structure_xml(table_dict.get('VoltageLevel'), ib.voltage_level_columns)
-        substation = self.check_structure_xml(table_dict.get('Substation'), ib.substation_columns)
-        manufacturer = self.check_structure_xml(table_dict.get('Manufacturer'), ib.manufacturer_columns)
-        organisation = self.check_structure_xml(table_dict.get('Organisation'), ib.organisation_columns)
-        product_asset_model = self.check_structure_xml(table_dict.get('ProductAssetModel'), ib.product_asset_model_columns)
-        terminal = self.check_structure_xml(table_dict.get('Terminal'), ib.terminal_columns)
+        # bay = self.check_structure_xml(table_dict.get('Bay'), ib.bay_columns)
+        # voltage_level = self.check_structure_xml(table_dict.get('VoltageLevel'), ib.voltage_level_columns)
+        # substation = self.check_structure_xml(table_dict.get('Substation'), ib.substation_columns)
+        # manufacturer = self.check_structure_xml(table_dict.get('Manufacturer'), ib.manufacturer_columns)
+        # organisation = self.check_structure_xml(table_dict.get('Organisation'), ib.organisation_columns)
+        # product_asset_model = self.check_structure_xml(table_dict.get('ProductAssetModel'), ib.product_asset_model_columns)
+        # terminal = self.check_structure_xml(table_dict.get('Terminal'), ib.terminal_columns)
         # connectivity_node = self.check_structure_xml(table_dict.get('ConnectivityNode'), connectivity_node_columns)
 
-        out_df = (breaker
-                  .merge(bay[ib.bay_columns],
+        out_df = (breaker.body
+                  .merge(bay.body,
                          left_on='Equipment.EquipmentContainer', right_on='bay_mRID',
                          how='left', suffixes=('_br', '_bay'))
-                  .merge(voltage_level[ib.voltage_level_columns],
+                  .merge(voltage_level.body,
                          left_on='Bay.VoltageLevel', right_on='voltagelevel_mRID',
                          how='left', suffixes=('_bay', '_voltlev'))
-                  .merge(substation[ib.substation_columns],
+                  .merge(substation.body,
                          left_on='VoltageLevel.Substation', right_on='substation_mRID',
                          how='left', suffixes=('_voltlev', '_subst'))
-                  .merge(base_voltage[base_voltage_data.keys()],
-                         left_on='VoltageLevel.BaseVoltage', right_on='mRID',
+                  .merge(base_voltage.body,
+                         left_on='VoltageLevel.BaseVoltage', right_on='basevoltage_mRID',
                          how='left', suffixes=('_subst', '_base_v'))
                   )
 
         out_df = (out_df
-                  .merge(asset[ib.asset_columns],
+                  .merge(asset.body,
                          left_on='PowerSystemResource.Assets', right_on='asset_mRID',
                          how='left', suffixes=('_base_v', '_asset'))
-                  .merge(product_asset_model[ib.product_asset_model_columns],
+                  .merge(product_asset_model.body,
                          left_on='Asset.ProductAssetModel', right_on='productassetmodel_mRID',
                          how='left', suffixes=('_asset', '_pam'))
-                  .merge(manufacturer[ib.manufacturer_columns],
+                  .merge(manufacturer.body,
                          left_on='ProductAssetModel.Manufacturer', right_on='manufacturer_mRID',
                          how='left', suffixes=('_pam', '_manufact'))
-                  .merge(organisation[ib.organisation_columns],
+                  .merge(organisation.body,
                          left_on='OrganisationRole.Organisation', right_on='organisation_mRID',
                          how='left', suffixes=('_manufact', '_org'))
-                  .merge(breaker_info[ib.breaker_info_columns],
-                         left_on='Asset.AssetInfo', right_on='breakerinfo_mRID',
-                         how='left', suffixes=('_org', '_info'))
                   )
 
+        # Может быть заполнен или AssetDatasheet или AssetInfo
+        if (asset.body['Asset.AssetInfo'].isnull() | asset.body['Asset.AssetInfo'].astype(str).str.strip().eq(''))\
+                .all():
+            out_df = (out_df
+                      .merge(breaker_info.body,
+                             left_on='PowerSystemResource.AssetDatasheet', right_on='breakerinfo_mRID',
+                             how='left', suffixes=('_br2', '_info'))
+                      )
+        else:
+            out_df = (out_df
+                      .merge(breaker_info.body,
+                             left_on='Asset.AssetInfo', right_on='breakerinfo_mRID',
+                             how='left', suffixes=('_br2', '_info'))
+                      )
+        # Порядок полюсов в файле может быть перепутан - указываем его явно
+        terminal_1 = terminal.body[terminal.body['ACDCTerminal.sequenceNumber'] == '1']
+        terminal_2 = terminal.body[terminal.body['ACDCTerminal.sequenceNumber'] == '2']
+
         out_df = (out_df
-                  .merge(terminal[ib.terminal_columns],
-                         left_on='ConductingEquipment.Terminals', right_on='terminal_mRID',
-                         how='left', suffixes=('_info', '_t1'))
-                  .merge(terminal[ib.terminal_columns],
-                         left_on='ConductingEquipment.Terminals_2', right_on='terminal_mRID',
-                         how='left', suffixes=('_t1', '_t2'))
+                  .merge(terminal_1,
+                         left_on='breaker_mRID', right_on='Terminal.ConductingEquipment',
+                         how='left', suffixes=('_br3', '_T1'))
+                  .merge(terminal_2,
+                         left_on='breaker_mRID', right_on='Terminal.ConductingEquipment',
+                         how='left', suffixes=('_br4', '_T2'))
                   )
+
+        # Собираем вторую фактуру
+        out_df_2_2 = (voltage_limit.body
+                      .merge(operational_limit_set.body,
+                             left_on='OperationalLimit.OperationalLimitSet', right_on='operationallimitset_mRID',
+                             how='left', suffixes=('_voltlimit', '_OLSetV'))
+                      .merge(breaker.body[['breaker_mRID', 'IdentifiedObject.name']],
+                             left_on='OperationalLimitSet.Equipment', right_on='breaker_mRID',
+                             how='left', suffixes=('_OLSetV', '_br5'))
+                      )
+
+        out_df_2_2.dropna(axis=0, subset=['breaker_mRID'], inplace=True)
+        with pd.ExcelWriter('xlsx\\out_df_2_2.xlsx') as writer:
+            out_df_2_2.to_excel(writer, sheet_name='Лист1', index=False, )
 
         return out_df
 
@@ -162,15 +174,15 @@ class Breaker(BaseEquipment):
         dfc['Дата получения'] = pd.Timestamp.today()
         dfc['Дата ответа'] = pd.Timestamp.today() + pd.DateOffset(days=10)
 
-        rename_columns = {
-            'IdentifiedObject.name_br': 'Наименование выключателя',
-            'IdentifiedObject.name_bay': 'Наименование цепи',
-        }
-        dfc_renamed = dfc.rename(columns=rename_columns)
+        # rename_columns = {
+        #     'IdentifiedObject.name_br': 'Наименование выключателя',
+        #     'IdentifiedObject.name_bay': 'Наименование цепи',
+        # }
+        # dfc_renamed = dfc.rename(columns=rename_columns)
 
         file_name = f_name.rsplit("\\", 1)[1].rsplit(".", 1)[0]
         file_date = datetime.today().strftime('%Y_%m_%d_%H_%M_%S')
-        excel_name = f'{file_name}_Breakers_{file_date}.xlsx'
+        excel_name = f'xlsx\\{file_name}_Breakers_{file_date}.xlsx'
 
         with pd.ExcelWriter(excel_name) as writer:
-            dfc_renamed.to_excel(writer, sheet_name='Лист1', index=False, )
+            dfc.to_excel(writer, sheet_name='Лист1', index=False, )

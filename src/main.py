@@ -6,10 +6,10 @@ from equipments import Breaker
 
 def main():
     # f_name = r'c:\Users\olega\PycharmProjects\xParser\src\xml\ПС 189 (2 этап рекон.).xml'
-    # f_name = r'c:\Users\olega\PycharmProjects\xParser\src\xml\вв пс.xml'
+    f_name = r'c:\Users\olega\PycharmProjects\xParser\src\xml\вв пс.xml'
 
     # f_name = r'c:\Users\olega\PycharmProjects\xParser\src\xml\в_соглас.xml'
-    f_name = r'c:\Users\olega\PycharmProjects\xParser\src\xml\ввпс _ГОСТ 1.xml'
+    # f_name = r'c:\Users\olega\PycharmProjects\xParser\src\xml\ввпс _ГОСТ 1.xml'
 
     xml = XmlReader(f_name)
 
