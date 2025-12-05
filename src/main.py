@@ -14,8 +14,20 @@ def main():
     xml = XmlReader(f_name)
 
     breaker = Breaker(xml)
-    breaker_df = breaker.run()
+    breaker.run()
     breaker.save_table(f_name)
+
+    # # Второй файл для сравнения
+    # f_name_test = r'c:\Users\olega\PycharmProjects\xParser\src\xml\в_соглас_test.xml'
+    #
+    # xml_test = XmlReader(f_name_test)
+    #
+    # breaker_test = Breaker(xml_test)
+    # breaker_test.run()
+    #
+    # # Сравниваем
+    # breaker.compare(breaker_test)
+
 
     print('УРА!')
 
