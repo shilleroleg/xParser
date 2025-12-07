@@ -24,6 +24,8 @@ class Comparer:
             self.compare_id = compare_id
 
     def run(self) -> pd.DataFrame:
+        log.info('Запуск сравнения')
+
         # Проверяем наличие ParentObject
         self._find_parent_object()
 
@@ -36,21 +38,24 @@ class Comparer:
         return check_1_df
 
     def _compare_1(self) -> pd.DataFrame:
+        """Первая сравнялка для вывода таблицы с изменившимися/не изменившимися значениями"""
+
+        log.info('Сравнение таблиц поэлементно')
 
         # По mRID находим, как изменился состав оборудования
         mRID_df = self._find_intersect_mRID()
-        add_mRID = mRID_df.loc[mRID_df['compare_flg'] == 'Добавлено', self.compare_id].tolist()  # Только в первом файле
-        chg_mRID = mRID_df.loc[
-            mRID_df['compare_flg'] == 'Изменено', self.compare_id].tolist()  # Общие mRID для двух файлов
-        del_mRID = mRID_df.loc[mRID_df['compare_flg'] == 'Удалено', self.compare_id].tolist()  # Только во втором файле
+        # Только в первом файле
+        add_mRID = mRID_df.loc[mRID_df['compare_flg'] == 'Добавлено', self.compare_id].tolist()
+        # Общие mRID для двух файлов
+        chg_mRID = mRID_df.loc[mRID_df['compare_flg'] == 'Изменено', self.compare_id].tolist()
+        # Только во втором файле
+        del_mRID = mRID_df.loc[mRID_df['compare_flg'] == 'Удалено', self.compare_id].tolist()
 
         # Сравниваем только общие mRID
         chg_df = self._compare_change(chg_mRID)
 
         # Собираем финальный датафрейм
-        final_cng_df = (mRID_df
-                        .merge(chg_df, on=self.compare_id, how='inner')
-                        )
+        final_cng_df = mRID_df.merge(chg_df, on=self.compare_id, how='inner')
 
         final_add_df = (mRID_df
                         .merge(self.first[self.first[self.compare_id].isin(add_mRID)], on=self.compare_id, how='inner')
@@ -66,6 +71,7 @@ class Comparer:
         return final_df
 
     def _compare_columns_list(self) -> None:
+        """Сравнивает список колонок двух таблиц"""
         set_first = set(self.first_columns)
         set_second = set(self.second_columns)
 
@@ -80,6 +86,8 @@ class Comparer:
             log.info('Список колонок одинаков')
 
     def _find_intersect_mRID(self) -> pd.DataFrame:
+        """Возвращает датафрейм, в котором помечено какие mRID общие для двух таблиц (Изменено),
+        какие есть только в левой (Добавлено) и какие есть только в правой таблице (Удалено)"""
 
         merged_df = pd.merge(self.first[[self.compare_id]], self.second[[self.compare_id]],
                              on=self.compare_id, how='outer', indicator=True)
@@ -92,6 +100,10 @@ class Comparer:
         return merged_df
 
     def _compare_change(self, mrid_list: list[str]) -> pd.DataFrame:
+        """Сравнивает две таблицы на наличие изменений значений ячеек. Если значения одинаковые, то они выводятся.
+         Если значения отличаются, то они выводятся через разделитель separator"""
+
+        separator = '&'
 
         first = self.first[self.first[self.compare_id].isin(mrid_list)]
         second = self.second[self.second[self.compare_id].isin(mrid_list)]
@@ -112,7 +124,9 @@ class Comparer:
 
             temp_df[f'{column}_compare'] = np.where(temp_df[f'{column}_first'] == temp_df[f'{column}_second'],
                                                     temp_df[f'{column}_first'],
-                                                    temp_df[f'{column}_first'] + '&\n' + temp_df[f'{column}_second'])
+                                                    (temp_df[f'{column}_first']
+                                                     + f'{separator}\n'
+                                                     + temp_df[f'{column}_second']))
 
             result_df = result_df.merge(temp_df[[self.compare_id, f'{column}_compare']],
                                         on=self.compare_id, how='left'

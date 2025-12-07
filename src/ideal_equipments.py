@@ -1,4 +1,3 @@
-# from dataclasses import dataclass
 import pandas as pd
 import numpy as np
 
@@ -41,7 +40,7 @@ base_voltage_df = pd.DataFrame(data=base_voltage_data)
 
 class BaseTag:
     def __init__(self, df: pd.DataFrame):
-        self.body = df
+        self.data = df
         self.columns = []
         self.mRID = None
 
@@ -49,7 +48,7 @@ class BaseTag:
         """Проверяет, что все нужные колонки есть в df.
         Если колонки нет, то добавляем пустой столбец."""
 
-        df = self.body.copy()
+        df = self.data.copy()
 
         # Проверка, что все нужные тэги есть в xml
         for column in self.columns:
@@ -57,7 +56,7 @@ class BaseTag:
                 df[column] = np.nan
 
         # Задаем количество и порядок колонок как в списке
-        self.body = df[self.columns]
+        self.data = df[self.columns]
 
 
 class BaseVoltageTag(BaseTag):
@@ -225,10 +224,10 @@ class TemperatureDependentLimitPointTag(BaseTag):
         self.reformat_table()
 
     def reformat_table(self):
-        self.body['TemperatureDependentLimitPoint.temperature'] = self.body[
+        self.data['TemperatureDependentLimitPoint.temperature'] = self.data[
             'TemperatureDependentLimitPoint.temperature'].astype(float)
 
-        result = self.body.pivot_table(index='TemperatureDependentLimitPoint.TemperatureDependentLimitTable',
+        result = self.data.pivot_table(index='TemperatureDependentLimitPoint.TemperatureDependentLimitTable',
                                        columns='TemperatureDependentLimitPoint.temperature',
                                        values='TemperatureDependentLimitPoint.limitPercent',
                                        aggfunc='first').reset_index()

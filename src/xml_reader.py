@@ -2,7 +2,6 @@ import re
 import sys
 
 import pandas as pd
-# import chardet
 import xml.etree.ElementTree as ET
 
 from tools.logger import log
@@ -46,6 +45,7 @@ class XmlReader:
         return content
 
     def _get_namespace(self) -> dict[str: str]:
+        """Возвращает список всех namespace из xml файла"""
         namespaces = {}
 
         # Шаблон для поиска xmlns:prefix="uri"

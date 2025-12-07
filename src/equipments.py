@@ -1,9 +1,5 @@
-import re
 from abc import ABC, abstractmethod
 from datetime import datetime
-
-import pandas as pd
-import numpy as np
 
 from xml_reader import XmlReader
 from ideal_equipments import *
@@ -30,9 +26,12 @@ class BaseEquipment(ABC):
         return self.appendix_1
 
     @staticmethod
-    def _join(left: pd.DataFrame, right: pd.DataFrame,
-              left_on: str, right_on: str,
+    def _join(left: pd.DataFrame,
+              right: pd.DataFrame,
+              left_on: str,
+              right_on: str,
               suffixes: tuple[str, str] = ('_left', '_right')) -> pd.DataFrame:
+        """Метод-обертка для библиотечного метода merge. Нужна для обработки ошибок"""
 
         try:
             out_df = (left
@@ -64,11 +63,12 @@ class Breaker(BaseEquipment):
         self.tables_list = ['Breaker', 'BreakerInfo', 'Asset', 'OperationalLimitSet', 'CurrentLimit', 'VoltageLimit',
                             'Bay', 'VoltageLevel', 'Substation', 'Manufacturer', 'Organisation', 'ProductAssetModel',
                             'Terminal', 'TemperatureDependentLimitTable', 'TemperatureDependentLimitPoint'
-                            # , 'ConnectivityNode'
                             ]
 
     def create_appendix(self, table_dict: dict[str: pd.DataFrame]) -> pd.DataFrame:
-        # Разбор df
+        """Основной метод для расчета всех фактур"""
+
+        log.info('Разбор всех датафреймов')
         base_voltage = BaseVoltageTag(base_voltage_df)
 
         breaker = BreakerTag(table_dict.get('Breaker'))
@@ -89,64 +89,63 @@ class Breaker(BaseEquipment):
 
         temperature_dependent_limit_table = TemperatureDependentLimitTableTag(
             table_dict.get('TemperatureDependentLimitTable'))
-
         temperature_dependent_limit_point = TemperatureDependentLimitPointTag(
             table_dict.get('TemperatureDependentLimitPoint'))
 
         # temperature_dependent_limit_point.body.to_pickle('limit_point.pkl')
 
-        out_df = self._join(breaker.body, bay.body,
+        log.info('Собираем первую фактуру')
+        out_df = self._join(breaker.data, bay.data,
                             left_on='Equipment.EquipmentContainer', right_on=bay.mRID, suffixes=('_br', '_bay'))
-        out_df = self._join(out_df, voltage_level.body,
+        out_df = self._join(out_df, voltage_level.data,
                             left_on='Bay.VoltageLevel', right_on=voltage_level.mRID, suffixes=('_bay', '_voltlev'))
-        out_df = self._join(out_df, substation.body,
+        out_df = self._join(out_df, substation.data,
                             left_on='VoltageLevel.Substation', right_on=substation.mRID,
                             suffixes=('_voltlev', '_subst'))
-        out_df = self._join(out_df, base_voltage.body,
+        out_df = self._join(out_df, base_voltage.data,
                             left_on='VoltageLevel.BaseVoltage', right_on=base_voltage.mRID,
                             suffixes=('_subst', '_base_v'))
 
-        out_df = self._join(out_df, asset.body,
+        out_df = self._join(out_df, asset.data,
                             left_on='PowerSystemResource.Assets', right_on=asset.mRID,
                             suffixes=('_base_v', '_asset'))
-        out_df = self._join(out_df, product_asset_model.body,
+        out_df = self._join(out_df, product_asset_model.data,
                             left_on='Asset.ProductAssetModel', right_on=product_asset_model.mRID,
                             suffixes=('_asset', '_pam'))
-        out_df = self._join(out_df, manufacturer.body,
+        out_df = self._join(out_df, manufacturer.data,
                             left_on='ProductAssetModel.Manufacturer', right_on=manufacturer.mRID,
                             suffixes=('_pam', '_manufact'))
-        out_df = self._join(out_df, organisation.body,
+        out_df = self._join(out_df, organisation.data,
                             left_on='OrganisationRole.Organisation', right_on=organisation.mRID,
                             suffixes=('_manufact', '_org'))
 
         # Может быть заполнен или AssetDatasheet или AssetInfo
-        if (asset.body['Asset.AssetInfo'].isnull() | asset.body['Asset.AssetInfo'].astype(str).str.strip().eq('')) \
-                .all():
-            out_df = self._join(out_df, breaker_info.body,
+        if (out_df['Asset.AssetInfo'].isnull() | out_df['Asset.AssetInfo'].astype(str).str.strip().eq('')).all():
+            out_df = self._join(out_df, breaker_info.data,
                                 left_on='PowerSystemResource.AssetDatasheet', right_on=breaker_info.mRID,
                                 suffixes=('_br2', '_info'))
         else:
-            out_df = self._join(out_df, breaker_info.body,
+            out_df = self._join(out_df, breaker_info.data,
                                 left_on='Asset.AssetInfo', right_on=breaker_info.mRID, suffixes=('_br2', '_info'))
 
         # Порядок полюсов в файле может быть перепутан - указываем его явно
-        terminal_1 = terminal.body[terminal.body['ACDCTerminal.sequenceNumber'] == '1']
-        terminal_2 = terminal.body[terminal.body['ACDCTerminal.sequenceNumber'] == '2']
+        terminal_1 = terminal.data[terminal.data['ACDCTerminal.sequenceNumber'] == '1']
+        terminal_2 = terminal.data[terminal.data['ACDCTerminal.sequenceNumber'] == '2']
 
         out_df = self._join(out_df, terminal_1,
                             left_on=breaker.mRID, right_on='Terminal.ConductingEquipment', suffixes=('_br3', '_T1'))
         out_df = self._join(out_df, terminal_2,
                             left_on=breaker.mRID, right_on='Terminal.ConductingEquipment', suffixes=('_br4', '_T2'))
 
-        # Собираем вторую фактуру
-        out_df_2_1 = (current_limit.body
-                      .merge(operational_limit_set.body,
+        log.info('Собираем вторую фактуру')
+        out_df_2_1 = (current_limit.data
+                      .merge(operational_limit_set.data,
                              left_on='OperationalLimit.OperationalLimitSet', right_on=operational_limit_set.mRID,
                              how='left', suffixes=('_curlimit', '_OLSetI'))
-                      .merge(breaker.body[['breaker_mRID', 'IdentifiedObject.name']],
+                      .merge(breaker.data[['breaker_mRID', 'IdentifiedObject.name']],
                              left_on='OperationalLimitSet.Equipment', right_on=breaker.mRID,
                              how='left', suffixes=('_OLSetI', '_br'))
-                      .merge(temperature_dependent_limit_table.body,
+                      .merge(temperature_dependent_limit_table.data,
                              left_on='OperationalLimit.LimitDependencyModel',
                              right_on=temperature_dependent_limit_table.mRID,
                              how='left', suffixes=('_curlimit2', '_Table'))
@@ -157,12 +156,12 @@ class Breaker(BaseEquipment):
                       )
         out_df_2_1.dropna(axis=0, subset=[breaker.mRID], inplace=True)
 
-        # Собираем третью фактуру
-        out_df_2_2 = (voltage_limit.body
-                      .merge(operational_limit_set.body,
+        log.info('Собираем третью фактуру')
+        out_df_2_2 = (voltage_limit.data
+                      .merge(operational_limit_set.data,
                              left_on='OperationalLimit.OperationalLimitSet', right_on=operational_limit_set.mRID,
                              how='left', suffixes=('_voltlimit', '_OLSetV'))
-                      .merge(breaker.body[['breaker_mRID', 'IdentifiedObject.name']],
+                      .merge(breaker.data[['breaker_mRID', 'IdentifiedObject.name']],
                              left_on='OperationalLimitSet.Equipment', right_on=breaker.mRID,
                              how='left', suffixes=('_OLSetV', '_br'))
                       )
@@ -175,6 +174,8 @@ class Breaker(BaseEquipment):
         return out_df
 
     def save_table(self, f_name: str):
+        """Сохраняем все рассчитанные таблицы в xlsx"""
+
         dfc1 = self.appendix_1.copy()
         dfc2_1 = self.appendix_2_1.copy()
         dfc2_2 = self.appendix_2_2.copy()
