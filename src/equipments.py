@@ -47,26 +47,6 @@ class BaseEquipment(ABC):
 
         return out_df
 
-    def compare(self, other, compare_id=None):
-        columns_list = self.appendix_1.columns
-        other_column_list = other.appendix_1.columns
-
-        if compare_id is None or compare_id not in columns_list:
-            compare_id = columns_list[0]
-
-        result_df = self.appendix_1.merge(other.appendix_1, on=compare_id, how='left', suffixes=('_left', '_right'))
-
-        for column in columns_list:
-            if column == compare_id:
-                continue
-
-            # df['que'] = np.where((result_df['one'] >= df['two'])
-            #                      , df['one'], np.nan)
-            #
-            # df['que'] = result_df.apply(lambda x: x['one'] if x[f'{column}_left'] >= x[f'{column}_right'] else "", axis=1)
-
-        print()
-
     @abstractmethod
     def create_appendix(self, table_dict: dict[str: pd.DataFrame]) -> pd.DataFrame:
         pass
