@@ -135,7 +135,7 @@ class Comparer:
         result_column = [col.replace('_compare', '') for col in result_df.columns]
         result_df.columns = result_column
 
-        result_df = result_df.replace('(EMPTY)', np.nan)
+        result_df = result_df.replace('(EMPTY)', '')
 
         return result_df
 

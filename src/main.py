@@ -34,7 +34,7 @@ def main():
     comp_df = comparer.run()
 
     with pd.ExcelWriter('compare3.xlsx') as writer:
-        comp_df.to_excel(writer, sheet_name='Лист1', index=False, )
+        comp_df.to_excel(writer, sheet_name='compare', index=False, )
 
     log.info('Разбор оборудования завершен')
 
