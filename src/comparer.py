@@ -3,39 +3,27 @@ import sys
 import numpy as np
 import pandas as pd
 
-from src.equipments import BaseEquipment
 from tools.logger import log
 
 
 class Comparer:
-    def __init__(self, first: BaseEquipment, second: BaseEquipment, compare_id: str = None):
-        self.first = first.appendix_1
-        self.second = second.appendix_1
-
-        self.first_columns = self.first.columns
-        self.second_columns = self.second.columns
-
-        self.first_txt = first.xml.xml_txt
-        self.second_txt = second.xml.xml_txt
-
-        if compare_id is None or compare_id not in self.first_columns:
-            self.compare_id = self.first_columns[0]
-        else:
-            self.compare_id = compare_id
+    def __init__(self, first: pd.DataFrame, second: pd.DataFrame, compare_id: str):
+        self.first = first
+        self.second = second
+        self.compare_id = compare_id
 
     def run(self) -> pd.DataFrame:
-        log.info('Запуск сравнения')
-
-        # Проверяем наличие ParentObject
-        self._find_parent_object()
+        log.info('Сравнение запущено')
 
         # Проверяем, что список столбцов одинаковый
         self._compare_columns_list()
 
         # Запуск первой сравнялки: сравниваем две таблицы поэлементно
-        check_1_df = self._compare_1()
+        compare_1_df = self._compare_1()
 
-        return check_1_df
+        log.info('Сравнение завершено')
+
+        return compare_1_df
 
     def _compare_1(self) -> pd.DataFrame:
         """Первая сравнялка для вывода таблицы с изменившимися/не изменившимися значениями"""
@@ -72,8 +60,8 @@ class Comparer:
 
     def _compare_columns_list(self) -> None:
         """Сравнивает список колонок двух таблиц"""
-        set_first = set(self.first_columns)
-        set_second = set(self.second_columns)
+        set_first = set(self.first.columns)
+        set_second = set(self.second.columns)
 
         uniq_firs = set_first.difference(set_second)
         uniq_second = set_second.difference(set_first)
@@ -105,22 +93,22 @@ class Comparer:
 
         separator = '&'
 
-        first = self.first[self.first[self.compare_id].isin(mrid_list)]
-        second = self.second[self.second[self.compare_id].isin(mrid_list)]
+        first_ = self.first[self.first[self.compare_id].isin(mrid_list)]
+        second_ = self.second[self.second[self.compare_id].isin(mrid_list)]
 
-        first = first.fillna('(EMPTY)')
-        second = second.fillna('(EMPTY)')
+        first_ = first_.fillna('(EMPTY)')
+        second_ = second_.fillna('(EMPTY)')
 
-        result_df = first[self.compare_id].to_frame()
+        result_df = first_[self.compare_id].to_frame()
 
-        for column in self.first_columns:
+        for column in first_.columns:
             if column == self.compare_id:
                 continue
 
-            temp_df = first[[self.compare_id, column]].merge(second[[self.compare_id, column]],
-                                                             on=self.compare_id, how='left',
-                                                             suffixes=('_first', '_second')
-                                                             )
+            temp_df = first_[[self.compare_id, column]].merge(second_[[self.compare_id, column]],
+                                                              on=self.compare_id, how='left',
+                                                              suffixes=('_first', '_second')
+                                                              )
 
             temp_df[f'{column}_compare'] = np.where(temp_df[f'{column}_first'] == temp_df[f'{column}_second'],
                                                     temp_df[f'{column}_first'],
@@ -139,15 +127,13 @@ class Comparer:
 
         return result_df
 
-    def _find_parent_object(self):
+    @staticmethod
+    def check_xml(xml_txt: str):
         """Если xml содержит ParentObject, то это ошибка"""
 
         check_substring = 'ParentObject'
-        if check_substring in self.first_txt:
-            log.error(f'Первый объект содержит {check_substring}')
-            sys.exit(-1)
-        elif check_substring in self.second_txt:
-            log.error(f'Второй объект содержит {check_substring}')
-            sys.exit(-1)
+        if check_substring in xml_txt:
+            log.error(f'Объект содержит {check_substring}')
+            # sys.exit(-1)
         else:
-            log.info(f'Объекты не содержат {check_substring}')
+            log.info(f'Объект не содержит {check_substring}')

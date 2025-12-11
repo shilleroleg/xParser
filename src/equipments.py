@@ -1,6 +1,9 @@
+from __future__ import annotations
+
 from abc import ABC, abstractmethod
 from datetime import datetime
 
+from comparer import Comparer
 from xml_reader import XmlReader
 from ideal_equipments import *
 from tools.logger import log
@@ -15,6 +18,9 @@ class BaseEquipment(ABC):
         self.appendix_2_1 = pd.DataFrame()
         self.appendix_2_2 = pd.DataFrame()
         self.appendix_2_2_pivot = pd.DataFrame()
+
+        self.compare_1 = pd.DataFrame()
+        self.compare_2_1 = pd.DataFrame()
 
     def run(self) -> pd.DataFrame:
         """По набору тэгов собирает информацию об оборудовании"""
@@ -53,6 +59,10 @@ class BaseEquipment(ABC):
 
     @abstractmethod
     def save_table(self, f_name: str) -> None:
+        pass
+
+    @abstractmethod
+    def compare(self, other: BaseEquipment):
         pass
 
 
@@ -195,6 +205,18 @@ class Breaker(BaseEquipment):
 
         return out_df
 
+    def compare(self, other: Breaker):
+        comparer_1 = Comparer(self.appendix_1, other.appendix_1, 'breaker_mRID')
+        comparer_2_1 = Comparer(self.appendix_2_1, other.appendix_2_1, 'currentlimit_mRID')
+
+        # Проверяем наличие ParentObject. Запустить один раз.
+        comparer_1.check_xml(self.xml.xml_txt)
+
+        log.info('Запуск сравнялки для главной фактуры')
+        self.compare_1 = comparer_1.run()
+        log.info('Запуск сравнялки для фактуры CurrentLimit')
+        self.compare_2_1 = comparer_2_1.run()
+
     def save_table(self, f_name: str):
         """Сохраняем все рассчитанные таблицы в xlsx"""
 
@@ -225,8 +247,8 @@ class Breaker(BaseEquipment):
                                  'IdentifiedObject.name_OLSetV', 'OperationalLimitSet.Terminal', 'breaker_mRID',
                                  'IdentifiedObject.name_br']
 
-        dfc1 = self.appendix_1[breaker_columns].copy()
-        dfc2_1 = self.appendix_2_1[current_limit_columns].copy()
+        dfc1 = self.compare_1[breaker_columns].copy()
+        dfc2_1 = self.compare_2_1[current_limit_columns].copy()
         dfc2_2 = self.appendix_2_2[voltage_limit_columns].copy()
         dfc2_2_pivot = self.appendix_2_2_pivot.copy()
 
@@ -268,3 +290,20 @@ class Breaker(BaseEquipment):
             dfc1[breaker_columns_short].to_excel(writer, sheet_name='breaker', index=False, )
             dfc2_1.to_excel(writer, sheet_name='current_limit', index=False, )
             dfc2_2_pivot.to_excel(writer, sheet_name='voltage_limit', index=False, )
+
+
+class PowerTransformer(BaseEquipment):
+
+    def __init__(self, xml: XmlReader):
+        super().__init__(xml)
+        self.mRID = ''
+        self.tables_list = []
+
+    def create_appendix(self, table_dict: dict[str: pd.DataFrame]) -> pd.DataFrame:
+        pass
+
+    def compare(self, other: PowerTransformer):
+        pass
+
+    def save_table(self, f_name: str) -> None:
+        pass
