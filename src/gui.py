@@ -1,9 +1,11 @@
 import os
+import glob
 from time import strftime, localtime
+from typing import Tuple, Any
 
 from tkinter import *
 import tkinter.ttk as ttk
-from typing import Tuple, Any
+import tkinter.font as tkfont
 
 from src.equipments import Breaker, PowerTransformer, CurrentTransformer
 from src.xml_reader import XmlReader
@@ -91,20 +93,25 @@ class View:
         self.root.resizable(True, True)
         self.root.title("xParser")
 
+        # Задаем размер шрифта
+        default_font = tkfont.nametofont("TkDefaultFont")
+        default_font.configure(size=12)
+        root.option_add("*Font", default_font)
+
         self.Main = Frame(self.root)
 
         position = {'padx': 5, 'pady': 5, 'anchor': NW}
 
         # --- Section 1
-        self.section1 = Frame(self.Main)
-
-        self.label_fpath = Label(self.section1, text='Label_0')
-        self.label_fpath.pack(padx=5, pady=5, side=LEFT)
-
-        self.field_fpath = Label(self.section1, text=' ')
-        self.field_fpath.pack(padx=5, pady=5, side=LEFT)
-
-        self.section1.pack(padx=5, pady=5, expand=True, fill=X)
+        # self.section1 = Frame(self.Main)
+        #
+        # self.label_fpath = Label(self.section1, text='Label_0')
+        # self.label_fpath.pack(padx=5, pady=5, side=LEFT)
+        #
+        # self.field_fpath = Label(self.section1, text=' ')
+        # self.field_fpath.pack(padx=5, pady=5, side=LEFT)
+        #
+        # self.section1.pack(padx=5, pady=5, expand=True, fill=X)
         # --- END Section 1
 
         # --- Section 2
@@ -134,22 +141,25 @@ class View:
         self.label_1 = Label(self.section2_2, text='Файл собственника')
         self.label_1.pack(**position)
 
-        self.entry_1 = Entry(self.section2_2, width=30)
+        self.entry_1 = ttk.Combobox(self.section2_2, width=30)
         self.entry_1.pack(padx=5, pady=5, expand=True, fill=X)
+        self.entry_1.set("Выберите файл")  # Устанавливаем текст по умолчанию
 
         self.label_2 = Label(self.section2_2, text='Файл СО')
         self.label_2.pack(**position)
 
-        self.entry_2 = Entry(self.section2_2, width=30)
+        self.entry_2 = ttk.Combobox(self.section2_2, width=30)
         self.entry_2.pack(padx=5, pady=5, expand=True, fill=X)
+        self.entry_2.set("Выберите файл")  # Устанавливаем текст по умолчанию
 
         self.label_3 = Label(self.section2_2, text='Справочник')
         self.label_3.pack(**position)
 
-        self.entry_3 = Entry(self.section2_2, width=30)
+        self.entry_3 = ttk.Combobox(self.section2_2, width=30)
         self.entry_3.pack(padx=5, pady=5, expand=True, fill=X)
+        self.entry_3.set("Выберите файл")  # Устанавливаем текст по умолчанию
 
-        self.label_4 = Label(self.section2_2, text='Куда сохранить')
+        self.label_4 = Label(self.section2_2, text='Путь для сохранения. Задается без конечной \\')
         self.label_4.pack(**position)
 
         self.entry_4 = Entry(self.section2_2, width=30)
@@ -182,6 +192,7 @@ class View:
 
         self.btn_open = Button(self.Main, text='Открыть', height=2, width=10)
         self.btn_open.pack(padx=5, pady=5, side=LEFT)
+        self.btn_open["state"] = DISABLED  # Начальное состояние неактивное
 
         self.btn_exit = Button(self.Main, text='Выход', height=2, width=10)
         self.btn_exit.pack(padx=5, pady=5, side=RIGHT)
@@ -203,10 +214,26 @@ class Controller:
         self.fname_long = ''
         self.fname_short = ''
 
-    def btn_proc_func(self) -> int:
+        self._set_xml_path()
 
-        # Устанавливаем текст в самом верхнем поле
-        self.view.field_fpath.config(text='Привет')
+    def _set_xml_path(self):
+        """Для полей ввода устанавливаем значения выпадающего списка с именами xml файлов"""
+
+        # Получаем список xml в папке xml
+        xml_list = self._get_xml_list()
+        # Устанавливаем значения
+        self.view.entry_1.configure(values=xml_list)
+        self.view.entry_2.configure(values=xml_list)
+        self.view.entry_3.configure(values=xml_list)
+
+    @staticmethod
+    def _get_xml_list():
+        """Возвращает первые 15 имен xml файлов из папки xml"""
+        f_list = glob.glob("xml/*.xml")
+        return f_list[:15]
+
+    def btn_proc_func(self) -> int:
+        """Обработка кнопки Обработать"""
 
         # Получаем пути до файлов
         fname_owner = self.view.entry_1.get()
@@ -215,12 +242,16 @@ class Controller:
         fpath_save = self.view.entry_4.get()
 
         # Проверка путей
-        if fname_owner == '':
+        if fname_owner == 'Выберите файл':
             self.append_log(status_dict.get(-6), 'red')
             return -6
-        if fname_so == '':
+        if fname_so == 'Выберите файл':
             self.append_log(status_dict.get(-7), 'red')
             return -7
+        if fname_dict == 'Выберите файл':
+            fname_dict = None
+        if fpath_save == '':
+            fpath_save = None
 
         # Получаем состояние переключателя RadioButton
         current_equipment = str(self.view.Rvar.get())
@@ -237,13 +268,15 @@ class Controller:
             self.fname_short = status[1]
             self.append_log(f'Сохранен файл {self.fname_long}')
             self.append_log(f'Сохранен файл {self.fname_short}')
+            # Активируем кнопку открытия
+            self.view.btn_open["state"] = NORMAL
             return 0
         elif isinstance(status, int):
             self.append_log(status_dict.get(status), 'red')
             return status
 
     def btn_open_func(self):
-        """Открывает файоы сравнения"""
+        """Открывает файлы сравнения"""
         self.append_log(f'Открываем полный файл {self.fname_long}')
         os.startfile(self.fname_long)
 
@@ -251,6 +284,7 @@ class Controller:
         os.startfile(self.fname_short)
 
     def btn_exit_func(self):
+        """Обработка кнопки Выход"""
         self.view.root.quit()
 
     def append_log(self, txt: str, tag: str = None) -> None:
@@ -261,6 +295,7 @@ class Controller:
             self.view.field_log.insert(END, f'{current_time} - {txt}\n', tag)
 
         self.view.field_log.see('end')
+
 
 
 if __name__ == '__main__':
