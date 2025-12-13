@@ -217,7 +217,7 @@ class Breaker(BaseEquipment):
         log.info('Запуск сравнялки для фактуры CurrentLimit')
         self.compare_2_1 = comparer_2_1.run()
 
-    def save_table(self, f_name: str):
+    def save_table(self, f_path: str) -> tuple[str, str]:
         """Сохраняем все рассчитанные таблицы в xlsx"""
 
         # В эксель сохраняем только нужные колонки
@@ -261,10 +261,13 @@ class Breaker(BaseEquipment):
         # }
         # dfc_renamed = dfc1.rename(columns=rename_columns)
 
-        file_name = f_name.rsplit("\\", 1)[1].rsplit(".", 1)[0]
+        # Определяем путь для сохранения
+        if f_path is None:
+            f_path = 'xlsx'
+
         file_date = datetime.today().strftime('%Y_%m_%d_%H_%M_%S')
-        excel_name_long = f'xlsx\\{file_name}_Breakers_long_{file_date}.xlsx'
-        excel_name_short = f'xlsx\\{file_name}_Breakers_short_{file_date}.xlsx'
+        excel_name_long = f'{f_path}\\Breakers_long_{file_date}.xlsx'
+        excel_name_short = f'{f_path}\\Breakers_short_{file_date}.xlsx'
 
         log.info('Сохраняем полную версию фактуры')
         with pd.ExcelWriter(excel_name_long) as writer:
@@ -291,6 +294,8 @@ class Breaker(BaseEquipment):
             dfc2_1.to_excel(writer, sheet_name='current_limit', index=False, )
             dfc2_2_pivot.to_excel(writer, sheet_name='voltage_limit', index=False, )
 
+        return excel_name_long, excel_name_short
+
 
 class PowerTransformer(BaseEquipment):
 
@@ -303,6 +308,23 @@ class PowerTransformer(BaseEquipment):
         pass
 
     def compare(self, other: PowerTransformer):
+        pass
+
+    def save_table(self, f_name: str) -> None:
+        pass
+
+
+class CurrentTransformer(BaseEquipment):
+
+    def __init__(self, xml: XmlReader):
+        super().__init__(xml)
+        self.mRID = ''
+        self.tables_list = []
+
+    def create_appendix(self, table_dict: dict[str: pd.DataFrame]) -> pd.DataFrame:
+        pass
+
+    def compare(self, other: CurrentTransformer):
         pass
 
     def save_table(self, f_name: str) -> None:

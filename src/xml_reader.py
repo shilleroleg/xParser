@@ -37,7 +37,7 @@ class XmlReader:
             log.info(f'Файл успешно прочитан')
         except FileNotFoundError:
             log.error(f"Файл {self.f_name} не найден")
-            sys.exit(-1)
+            raise FileNotFoundError
         except Exception as e:
             log.error(f"Произошла ошибка: {e}")
             sys.exit(-1)
