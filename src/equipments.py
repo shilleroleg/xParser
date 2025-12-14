@@ -22,15 +22,13 @@ class BaseEquipment(ABC):
         self.compare_1 = pd.DataFrame()
         self.compare_2_1 = pd.DataFrame()
 
-    def run(self) -> pd.DataFrame:
+    def run(self) -> None:
         """По набору тэгов собирает информацию об оборудовании"""
         # Читаем список тегов из xml
         table_dict = self.xml.get_data_by_list(self.tables_list)
 
         # Объединяем все таблицы
-        self.appendix_1 = self.create_appendix(table_dict)
-
-        return self.appendix_1
+        self._create_appendix(table_dict)
 
     @staticmethod
     def _left_join(left: pd.DataFrame,
@@ -41,9 +39,7 @@ class BaseEquipment(ABC):
         """Метод-обертка для библиотечного метода merge. Нужен для обработки ошибок"""
 
         try:
-            out_df = (left
-                      .merge(right, left_on=left_on, right_on=right_on, how='left', suffixes=suffixes)
-                      )
+            out_df = left.merge(right, left_on=left_on, right_on=right_on, how='left', suffixes=suffixes)
         except ValueError:
             log.warning(f'Правая таблица не содержит запией или пустой ключ {right_on}')
             out_df = left.copy()
@@ -53,8 +49,27 @@ class BaseEquipment(ABC):
 
         return out_df
 
+    @staticmethod
+    def _get_dict_df():
+        """Возвращает df с тегами считанными из файлов-словарей"""
+
+        dicts_dict = {
+            r'dict\base_voltage.xml': ['BaseVoltage'],
+            r'dict\operational_limit_type.xml': ['OperationalLimitType'],
+            r'dict\organisations.xml': ['Manufacturer', 'ProductAssetModel', 'Organisation']
+        }
+
+        out_dict = {}
+        for key, value in dicts_dict.items():
+            xml = XmlReader(key)
+            for val in value:
+                df = xml.get_data_by_tag(val)
+                out_dict[f'{val}_dict'] = df
+
+        return out_dict
+
     @abstractmethod
-    def create_appendix(self, table_dict: dict[str: pd.DataFrame]) -> pd.DataFrame:
+    def _create_appendix(self, table_dict: dict[str: pd.DataFrame]) -> pd.DataFrame:
         pass
 
     @abstractmethod
@@ -76,42 +91,58 @@ class Breaker(BaseEquipment):
                             'Terminal', 'TemperatureDependentLimitTable', 'TemperatureDependentLimitPoint'
                             ]
 
-    def create_appendix(self, table_dict: dict[str: pd.DataFrame]) -> pd.DataFrame:
+    def _create_appendix(self, table_dict: dict[str: pd.DataFrame]) -> None:
         """Основной метод для расчета всех фактур"""
 
-        log.info('Разбор всех датафреймов')
+        self._create_appendix_1(table_dict)
+
+        self._create_appendix_2_1(table_dict)
+
+        self._create_appendix_2_2(table_dict)
+
+    def _create_appendix_1(self, table_dict: dict[str: pd.DataFrame]) -> None:
+
+        # Словари считываем отдельно из xml
+        dicts_df = self._get_dict_df()
+
+        base_voltage = BaseVoltageTag(dicts_df.get('BaseVoltage_dict'))
 
         breaker = BreakerTag(table_dict.get('Breaker'))
         breaker_info = BreakerInfoTag(table_dict.get('BreakerInfo'))
         asset = AssetTag(table_dict.get('Asset'))
-        operational_limit_set = OperationalLimitSetTag(table_dict.get('OperationalLimitSet'))
-
-        current_limit = CurrentLimitTag(table_dict.get('CurrentLimit'))
-        voltage_limit = VoltageLimitTag(table_dict.get('VoltageLimit'))
 
         bay = BayTag(table_dict.get('Bay'))
         voltage_level = VoltageLevelTag(table_dict.get('VoltageLevel'))
         substation = SubstationTag(table_dict.get('Substation'))
-        manufacturer = ManufacturerTag(table_dict.get('Manufacturer'))
-        organisation = OrganisationTag(table_dict.get('Organisation'))
-        product_asset_model = ProductAssetModelTag(table_dict.get('ProductAssetModel'))
         terminal = TerminalTag(table_dict.get('Terminal'))
 
-        temperature_dependent_limit_table = TemperatureDependentLimitTableTag(
-            table_dict.get('TemperatureDependentLimitTable'))
-        temperature_dependent_limit_point = TemperatureDependentLimitPointTag(
-            table_dict.get('TemperatureDependentLimitPoint'))
+        # В этих тегах надо добавлять данные из словаря
+        manufacturer_df = table_dict.get('Manufacturer')
+        manufacturer_dict_df = dicts_df.get('Manufacturer_dict')
+        if len(manufacturer_df) == 0:
+            manufacturer_df = manufacturer_dict_df
+        else:
+            manufacturer_df = pd.concat([manufacturer_dict_df, manufacturer_df], axis=0, ignore_index=True)
+            manufacturer_df.drop_duplicates(subset=['manufacturer_mRID'], keep='last', inplace=True)
+        manufacturer = ManufacturerTag(manufacturer_df)
 
-        # Словари считываем отдельно из xml
-        bv_name = r'dict\base_voltage.xml'
-        bv_xml = XmlReader(bv_name)
-        bv_df = bv_xml.get_data_by_tag('BaseVoltage')
-        base_voltage = BaseVoltageTag(bv_df)
+        organisation_df = table_dict.get('Organisation')
+        organisation_dict_df = dicts_df.get('Organisation_dict')
+        if len(organisation_df) == 0:
+            organisation_df = organisation_dict_df
+        else:
+            organisation_df = pd.concat([organisation_dict_df, organisation_df], axis=0, ignore_index=True)
+            organisation_df.drop_duplicates(subset=['organisation_mRID'], keep='last', inplace=True)
+        organisation = OrganisationTag(organisation_df)
 
-        olt_name = r'dict\operational_limit_type.xml'
-        olt_xml = XmlReader(olt_name)
-        olt_df = olt_xml.get_data_by_tag('OperationalLimitType')
-        operational_limit_type = OperationalLimitTypeTag(olt_df)
+        pam_df = table_dict.get('ProductAssetModel')
+        pam_dict_df = dicts_df.get('ProductAssetModel_dict')
+        if len(pam_df) == 0:
+            pam_df = pam_dict_df
+        else:
+            pam_df = pd.concat([pam_dict_df, pam_df], axis=0, ignore_index=True)
+            pam_df.drop_duplicates(subset=['productassetmodel_mRID'], keep='last', inplace=True)
+        product_asset_model = ProductAssetModelTag(pam_df)
 
         log.info('Собираем первую фактуру')
         out_df = self._left_join(breaker.data, bay.data,
@@ -152,58 +183,89 @@ class Breaker(BaseEquipment):
         terminal_2 = terminal.data[terminal.data['ACDCTerminal.sequenceNumber'] == '2']
 
         out_df = self._left_join(out_df, terminal_1,
-                                 left_on=breaker.mRID, right_on='Terminal.ConductingEquipment', suffixes=('_br3', '_T1'))
+                                 left_on=breaker.mRID, right_on='Terminal.ConductingEquipment',
+                                 suffixes=('_br3', '_T1'))
         out_df = self._left_join(out_df, terminal_2,
-                                 left_on=breaker.mRID, right_on='Terminal.ConductingEquipment', suffixes=('_br4', '_T2'))
+                                 left_on=breaker.mRID, right_on='Terminal.ConductingEquipment',
+                                 suffixes=('_br4', '_T2'))
+
+        self.appendix_1 = out_df.copy()
+
+    def _create_appendix_2_1(self, table_dict: dict[str: pd.DataFrame]) -> None:
+        # Словари считываем отдельно из xml
+        dicts_df = self._get_dict_df()
+
+        operational_limit_type = OperationalLimitTypeTag(dicts_df.get('OperationalLimitType_dict'))
+
+        breaker = BreakerTag(table_dict.get('Breaker'))
+        operational_limit_set = OperationalLimitSetTag(table_dict.get('OperationalLimitSet'))
+
+        current_limit = CurrentLimitTag(table_dict.get('CurrentLimit'))
+
+        temperature_dependent_limit_table = TemperatureDependentLimitTableTag(
+            table_dict.get('TemperatureDependentLimitTable'))
+        temperature_dependent_limit_point = TemperatureDependentLimitPointTag(
+            table_dict.get('TemperatureDependentLimitPoint'))
 
         log.info('Собираем вторую фактуру по CurrentLimit')
-        out_df_2_1 = self._left_join(current_limit.data, operational_limit_type.data,
-                                     left_on='OperationalLimit.OperationalLimitType', right_on=operational_limit_type.mRID,
+        out_df = self._left_join(current_limit.data, operational_limit_type.data,
+                                     left_on='OperationalLimit.OperationalLimitType',
+                                     right_on=operational_limit_type.mRID,
                                      suffixes=('_curlimit', '_olt'))
-        out_df_2_1 = self._left_join(out_df_2_1, operational_limit_set.data,
-                                     left_on='OperationalLimit.OperationalLimitSet', right_on=operational_limit_set.mRID,
+        out_df = self._left_join(out_df, operational_limit_set.data,
+                                     left_on='OperationalLimit.OperationalLimitSet',
+                                     right_on=operational_limit_set.mRID,
                                      suffixes=('_olt', '_OLSetI'))
-        out_df_2_1 = self._left_join(out_df_2_1,
+        out_df = self._left_join(out_df,
                                      breaker.data[['breaker_mRID', 'IdentifiedObject.name', 'Switch.ratedCurrent']],
                                      left_on='OperationalLimitSet.Equipment', right_on=breaker.mRID,
                                      suffixes=('_OLSetI', '_br'))
-        out_df_2_1 = self._left_join(out_df_2_1, temperature_dependent_limit_table.data,
+        out_df = self._left_join(out_df, temperature_dependent_limit_table.data,
                                      left_on='OperationalLimit.LimitDependencyModel',
                                      right_on=temperature_dependent_limit_table.mRID,
                                      suffixes=('_curlimit2', '_Table'))
-        out_df_2_1 = self._left_join(out_df_2_1, temperature_dependent_limit_point.body,
+        out_df = self._left_join(out_df, temperature_dependent_limit_point.body,
                                      left_on=temperature_dependent_limit_table.mRID,
                                      right_on=temperature_dependent_limit_point.mRID,
                                      suffixes=('_Table', '_Point'))
 
-        out_df_2_1.dropna(axis=0, subset=[breaker.mRID], inplace=True)
+        out_df.dropna(axis=0, subset=[breaker.mRID], inplace=True)
+
+        self.appendix_2_1 = out_df.copy()
+
+    def _create_appendix_2_2(self, table_dict: dict[str: pd.DataFrame]) -> None:
+        dicts_df = self._get_dict_df()
+
+        operational_limit_type = OperationalLimitTypeTag(dicts_df.get('OperationalLimitType_dict'))
+
+        breaker = BreakerTag(table_dict.get('Breaker'))
+        operational_limit_set = OperationalLimitSetTag(table_dict.get('OperationalLimitSet'))
+        voltage_limit = VoltageLimitTag(table_dict.get('VoltageLimit'))
 
         log.info('Собираем третью фактуру по VoltageLimit')
-        out_df_2_2 = self._left_join(voltage_limit.data, operational_limit_type.data,
-                                     left_on='OperationalLimit.OperationalLimitType', right_on=operational_limit_type.mRID,
+        out_df = self._left_join(voltage_limit.data, operational_limit_type.data,
+                                     left_on='OperationalLimit.OperationalLimitType',
+                                     right_on=operational_limit_type.mRID,
                                      suffixes=('_voltlimit', '_olt'))
-        out_df_2_2 = self._left_join(out_df_2_2, operational_limit_set.data,
-                                     left_on='OperationalLimit.OperationalLimitSet', right_on=operational_limit_set.mRID,
+        out_df = self._left_join(out_df, operational_limit_set.data,
+                                     left_on='OperationalLimit.OperationalLimitSet',
+                                     right_on=operational_limit_set.mRID,
                                      suffixes=('_olt', '_OLSetV'))
-        out_df_2_2 = self._left_join(out_df_2_2, breaker.data[['breaker_mRID', 'IdentifiedObject.name']],
+        out_df = self._left_join(out_df, breaker.data[['breaker_mRID', 'IdentifiedObject.name']],
                                      left_on='OperationalLimitSet.Equipment', right_on=breaker.mRID,
                                      suffixes=('_OLSetV', '_br'))
 
-        out_df_2_2.dropna(axis=0, subset=[breaker.mRID], inplace=True)
+        out_df.dropna(axis=0, subset=[breaker.mRID], inplace=True)
 
         log.info('Собираем свод по VoltageLimit')
-        out_df_2_2['IdentifiedObject.name_olt'] = out_df_2_2['IdentifiedObject.name_olt'].fillna('Unknown')
-        out_df_2_2_pivot = out_df_2_2.pivot_table(index=breaker.mRID,
+        out_df['IdentifiedObject.name_olt'] = out_df['IdentifiedObject.name_olt'].fillna('Unknown')
+        out_df_pivot = out_df.pivot_table(index=breaker.mRID,
                                                   columns='IdentifiedObject.name_olt',
                                                   values='VoltageLimit.value',
                                                   aggfunc='first').reset_index()
 
-        self.appendix_1 = out_df.copy()
-        self.appendix_2_1 = out_df_2_1.copy()
-        self.appendix_2_2 = out_df_2_2.copy()
-        self.appendix_2_2_pivot = out_df_2_2_pivot.copy()
-
-        return out_df
+        self.appendix_2_2 = out_df.copy()
+        self.appendix_2_2_pivot = out_df_pivot.copy()
 
     def compare(self, other: Breaker):
         comparer_1 = Comparer(self.appendix_1, other.appendix_1, 'breaker_mRID')
@@ -217,7 +279,7 @@ class Breaker(BaseEquipment):
         log.info('Запуск сравнялки для фактуры CurrentLimit')
         self.compare_2_1 = comparer_2_1.run()
 
-    def save_table(self, f_path: str) -> tuple[str, str]:
+    def save_table(self, f_path: str = None) -> tuple[str, str]:
         """Сохраняем все рассчитанные таблицы в xlsx"""
 
         # В эксель сохраняем только нужные колонки
@@ -264,7 +326,6 @@ class Breaker(BaseEquipment):
         # Определяем путь для сохранения
         if f_path is None:
             f_path = 'xlsx'
-
         file_date = datetime.today().strftime('%Y_%m_%d_%H_%M_%S')
         excel_name_long = f'{f_path}\\Breakers_long_{file_date}.xlsx'
         excel_name_short = f'{f_path}\\Breakers_short_{file_date}.xlsx'
@@ -304,7 +365,7 @@ class PowerTransformer(BaseEquipment):
         self.mRID = ''
         self.tables_list = []
 
-    def create_appendix(self, table_dict: dict[str: pd.DataFrame]) -> pd.DataFrame:
+    def _create_appendix(self, table_dict: dict[str: pd.DataFrame]) -> pd.DataFrame:
         pass
 
     def compare(self, other: PowerTransformer):
@@ -321,7 +382,7 @@ class CurrentTransformer(BaseEquipment):
         self.mRID = ''
         self.tables_list = []
 
-    def create_appendix(self, table_dict: dict[str: pd.DataFrame]) -> pd.DataFrame:
+    def _create_appendix(self, table_dict: dict[str: pd.DataFrame]) -> pd.DataFrame:
         pass
 
     def compare(self, other: CurrentTransformer):

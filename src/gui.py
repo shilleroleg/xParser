@@ -32,7 +32,7 @@ class Color:
 
 class Model:
     @staticmethod
-    def file_processing(current_equipment: str, fname_owner: str, fname_so: str, fname_dict: str = None,
+    def file_processing(current_equipment: str, fname_owner: str, fname_so: str,
                         fpath_save: str = None) -> int | tuple[str, str]:
 
         # Читаем xml
@@ -47,13 +47,6 @@ class Model:
         except Exception as e:
             print(e)
             return -2
-
-        if fname_dict:
-            try:
-                xml_dict = XmlReader(fname_dict)
-            except Exception as e:
-                print(e)
-                return -3
 
         # Определяем оборудование
         if current_equipment == 'Breaker':
@@ -152,12 +145,12 @@ class View:
         self.entry_2.pack(padx=5, pady=5, expand=True, fill=X)
         self.entry_2.set("Выберите файл")  # Устанавливаем текст по умолчанию
 
-        self.label_3 = Label(self.section2_2, text='Справочник')
-        self.label_3.pack(**position)
-
-        self.entry_3 = ttk.Combobox(self.section2_2, width=30)
-        self.entry_3.pack(padx=5, pady=5, expand=True, fill=X)
-        self.entry_3.set("Выберите файл")  # Устанавливаем текст по умолчанию
+        # self.label_3 = Label(self.section2_2, text='Справочник')
+        # self.label_3.pack(**position)
+        #
+        # self.entry_3 = ttk.Combobox(self.section2_2, width=30)
+        # self.entry_3.pack(padx=5, pady=5, expand=True, fill=X)
+        # self.entry_3.set("Выберите файл")  # Устанавливаем текст по умолчанию
 
         self.label_4 = Label(self.section2_2, text='Путь для сохранения. Задается без конечной \\')
         self.label_4.pack(**position)
@@ -224,7 +217,7 @@ class Controller:
         # Устанавливаем значения
         self.view.entry_1.configure(values=xml_list)
         self.view.entry_2.configure(values=xml_list)
-        self.view.entry_3.configure(values=xml_list)
+        # self.view.entry_3.configure(values=xml_list)
 
     @staticmethod
     def _get_xml_list():
@@ -238,7 +231,7 @@ class Controller:
         # Получаем пути до файлов
         fname_owner = self.view.entry_1.get()
         fname_so = self.view.entry_2.get()
-        fname_dict = self.view.entry_3.get()
+        # fname_dict = self.view.entry_3.get()
         fpath_save = self.view.entry_4.get()
 
         # Проверка путей
@@ -248,8 +241,6 @@ class Controller:
         if fname_so == 'Выберите файл':
             self.append_log(status_dict.get(-7), 'red')
             return -7
-        if fname_dict == 'Выберите файл':
-            fname_dict = None
         if fpath_save == '':
             fpath_save = None
 
@@ -260,7 +251,7 @@ class Controller:
         self.append_log(f'Выбрано оборудование {current_equipment}')
 
         # Запуск обработки
-        status = self.model.file_processing(current_equipment, fname_owner, fname_so, fname_dict, fpath_save)
+        status = self.model.file_processing(current_equipment, fname_owner, fname_so, fpath_save)
 
         if isinstance(status, tuple):
             self.append_log(f'{status_dict.get(0)} обработки файла {fname_owner}', 'green')

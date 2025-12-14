@@ -14,6 +14,7 @@ def main():
     # f_name = r'c:\Users\olega\PycharmProjects\xParser\src\xml\в_соглас.xml'
     # f_name = r'c:\Users\olega\PycharmProjects\xParser\src\xml\ввпс _ГОСТ 1.xml'
     f_name = r'c:\Users\olega\PycharmProjects\xParser\src\xml\ПС 189 (2 этап рекон.)_test.xml'
+    # f_name = r'c:\Users\olega\PycharmProjects\xParser\src\xml\ПС 189 (2 этап рекон.)_test3.xml'
 
     xml = XmlReader(f_name)
 
@@ -32,7 +33,7 @@ def main():
     breaker.compare(breaker_test)
 
     # Сохраняем приложения
-    breaker.save_table(f_name)
+    breaker.save_table()
 
     log.info('Разбор оборудования завершен')
 
