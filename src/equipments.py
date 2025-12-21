@@ -41,8 +41,9 @@ class BaseEquipment(ABC):
         try:
             out_df = left.merge(right, left_on=left_on, right_on=right_on, how='left', suffixes=suffixes)
         except ValueError:
-            log.warning(f'Правая таблица не содержит запией или пустой ключ {right_on}')
+            log.error(f'Правая таблица не содержит записей или пустой ключ {right_on}')
             out_df = left.copy()
+            out_df = out_df.reindex(columns=left.columns.tolist() + right.columns.tolist())
         except Exception as e:
             log.error(f'Ошибка при объединении двух таблиц {e}')
             out_df = left.copy()
@@ -56,7 +57,7 @@ class BaseEquipment(ABC):
         dicts_dict = {
             r'dict\base_voltage.xml': ['BaseVoltage'],
             r'dict\operational_limit_type.xml': ['OperationalLimitType'],
-            r'dict\organisations.xml': ['Manufacturer', 'ProductAssetModel', 'Organisation']
+            r'dict\database_ProductAssetModel.xml': ['Manufacturer', 'ProductAssetModel', 'Organisation']
         }
 
         out_dict = {}
@@ -123,7 +124,7 @@ class Breaker(BaseEquipment):
             manufacturer_df = manufacturer_dict_df
         else:
             manufacturer_df = pd.concat([manufacturer_dict_df, manufacturer_df], axis=0, ignore_index=True)
-            manufacturer_df.drop_duplicates(subset=['manufacturer_mRID'], keep='last', inplace=True)
+            manufacturer_df.drop_duplicates(subset=['manufacturer_mRID'], keep='first', inplace=True)
         manufacturer = ManufacturerTag(manufacturer_df)
 
         organisation_df = table_dict.get('Organisation')
@@ -132,7 +133,7 @@ class Breaker(BaseEquipment):
             organisation_df = organisation_dict_df
         else:
             organisation_df = pd.concat([organisation_dict_df, organisation_df], axis=0, ignore_index=True)
-            organisation_df.drop_duplicates(subset=['organisation_mRID'], keep='last', inplace=True)
+            organisation_df.drop_duplicates(subset=['organisation_mRID'], keep='first', inplace=True)
         organisation = OrganisationTag(organisation_df)
 
         pam_df = table_dict.get('ProductAssetModel')
@@ -141,7 +142,7 @@ class Breaker(BaseEquipment):
             pam_df = pam_dict_df
         else:
             pam_df = pd.concat([pam_dict_df, pam_df], axis=0, ignore_index=True)
-            pam_df.drop_duplicates(subset=['productassetmodel_mRID'], keep='last', inplace=True)
+            pam_df.drop_duplicates(subset=['productassetmodel_mRID'], keep='first', inplace=True)
         product_asset_model = ProductAssetModelTag(pam_df)
 
         log.info('Собираем первую фактуру')
@@ -170,7 +171,7 @@ class Breaker(BaseEquipment):
                                  suffixes=('_manufact', '_org'))
 
         # Может быть заполнен или AssetDatasheet или AssetInfo
-        if (out_df['Asset.AssetInfo'].isnull() | out_df['Asset.AssetInfo'].astype(str).str.strip().eq('')).all():
+        if (out_df['Asset.AssetInfo'].astype(str).str.strip().eq('EMPTY')).all():
             out_df = self._left_join(out_df, breaker_info.data,
                                      left_on='PowerSystemResource.AssetDatasheet', right_on=breaker_info.mRID,
                                      suffixes=('_br2', '_info'))
@@ -209,25 +210,25 @@ class Breaker(BaseEquipment):
 
         log.info('Собираем вторую фактуру по CurrentLimit')
         out_df = self._left_join(current_limit.data, operational_limit_type.data,
-                                     left_on='OperationalLimit.OperationalLimitType',
-                                     right_on=operational_limit_type.mRID,
-                                     suffixes=('_curlimit', '_olt'))
+                                 left_on='OperationalLimit.OperationalLimitType',
+                                 right_on=operational_limit_type.mRID,
+                                 suffixes=('_curlimit', '_olt'))
         out_df = self._left_join(out_df, operational_limit_set.data,
-                                     left_on='OperationalLimit.OperationalLimitSet',
-                                     right_on=operational_limit_set.mRID,
-                                     suffixes=('_olt', '_OLSetI'))
+                                 left_on='OperationalLimit.OperationalLimitSet',
+                                 right_on=operational_limit_set.mRID,
+                                 suffixes=('_olt', '_OLSetI'))
         out_df = self._left_join(out_df,
-                                     breaker.data[['breaker_mRID', 'IdentifiedObject.name', 'Switch.ratedCurrent']],
-                                     left_on='OperationalLimitSet.Equipment', right_on=breaker.mRID,
-                                     suffixes=('_OLSetI', '_br'))
+                                 breaker.data[['breaker_mRID', 'IdentifiedObject.name', 'Switch.ratedCurrent']],
+                                 left_on='OperationalLimitSet.Equipment', right_on=breaker.mRID,
+                                 suffixes=('_OLSetI', '_br'))
         out_df = self._left_join(out_df, temperature_dependent_limit_table.data,
-                                     left_on='OperationalLimit.LimitDependencyModel',
-                                     right_on=temperature_dependent_limit_table.mRID,
-                                     suffixes=('_curlimit2', '_Table'))
-        out_df = self._left_join(out_df, temperature_dependent_limit_point.body,
-                                     left_on=temperature_dependent_limit_table.mRID,
-                                     right_on=temperature_dependent_limit_point.mRID,
-                                     suffixes=('_Table', '_Point'))
+                                 left_on='OperationalLimit.LimitDependencyModel',
+                                 right_on=temperature_dependent_limit_table.mRID,
+                                 suffixes=('_curlimit2', '_Table'))
+        out_df = self._left_join(out_df, temperature_dependent_limit_point.data,
+                                 left_on=temperature_dependent_limit_table.mRID,
+                                 right_on=temperature_dependent_limit_point.mRID,
+                                 suffixes=('_Table', '_Point'))
 
         out_df.dropna(axis=0, subset=[breaker.mRID], inplace=True)
 
@@ -244,25 +245,25 @@ class Breaker(BaseEquipment):
 
         log.info('Собираем третью фактуру по VoltageLimit')
         out_df = self._left_join(voltage_limit.data, operational_limit_type.data,
-                                     left_on='OperationalLimit.OperationalLimitType',
-                                     right_on=operational_limit_type.mRID,
-                                     suffixes=('_voltlimit', '_olt'))
+                                 left_on='OperationalLimit.OperationalLimitType',
+                                 right_on=operational_limit_type.mRID,
+                                 suffixes=('_voltlimit', '_olt'))
         out_df = self._left_join(out_df, operational_limit_set.data,
-                                     left_on='OperationalLimit.OperationalLimitSet',
-                                     right_on=operational_limit_set.mRID,
-                                     suffixes=('_olt', '_OLSetV'))
+                                 left_on='OperationalLimit.OperationalLimitSet',
+                                 right_on=operational_limit_set.mRID,
+                                 suffixes=('_olt', '_OLSetV'))
         out_df = self._left_join(out_df, breaker.data[['breaker_mRID', 'IdentifiedObject.name']],
-                                     left_on='OperationalLimitSet.Equipment', right_on=breaker.mRID,
-                                     suffixes=('_OLSetV', '_br'))
+                                 left_on='OperationalLimitSet.Equipment', right_on=breaker.mRID,
+                                 suffixes=('_OLSetV', '_br'))
 
         out_df.dropna(axis=0, subset=[breaker.mRID], inplace=True)
 
         log.info('Собираем свод по VoltageLimit')
         out_df['IdentifiedObject.name_olt'] = out_df['IdentifiedObject.name_olt'].fillna('Unknown')
         out_df_pivot = out_df.pivot_table(index=breaker.mRID,
-                                                  columns='IdentifiedObject.name_olt',
-                                                  values='VoltageLimit.value',
-                                                  aggfunc='first').reset_index()
+                                          columns='IdentifiedObject.name_olt',
+                                          values='VoltageLimit.value',
+                                          aggfunc='first').reset_index()
 
         self.appendix_2_2 = out_df.copy()
         self.appendix_2_2_pivot = out_df_pivot.copy()
@@ -347,8 +348,7 @@ class Breaker(BaseEquipment):
                                  'SwitchInfo.ratedVoltage', 'SwitchInfo.ratedCurrent', 'SwitchInfo.breakingCapacity',
                                  'BreakerInfo.interruptingTime', 'BreakerInfo.ratedRecloseTime',
                                  'SwitchInfo.ratedInterruptingTime', 'SwitchInfo.ratedInTransitTime',
-                                 'SwitchInfo.isSinglePhase', 'SwitchInfo.isUnganged',
-                                 'ACDCTerminal.sequenceNumber_br4', 'ACDCTerminal.sequenceNumber_T2']
+                                 'SwitchInfo.isSinglePhase', 'SwitchInfo.isUnganged']
 
         with pd.ExcelWriter(excel_name_short) as writer:
             dfc1[breaker_columns_short].to_excel(writer, sheet_name='breaker', index=False, )
@@ -371,7 +371,7 @@ class PowerTransformer(BaseEquipment):
     def compare(self, other: PowerTransformer):
         pass
 
-    def save_table(self, f_name: str) -> None:
+    def save_table(self, f_name: str) -> tuple[str, str]:
         pass
 
 
@@ -388,5 +388,5 @@ class CurrentTransformer(BaseEquipment):
     def compare(self, other: CurrentTransformer):
         pass
 
-    def save_table(self, f_name: str) -> None:
+    def save_table(self, f_name: str) -> tuple[str, str]:
         pass

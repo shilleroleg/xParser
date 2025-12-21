@@ -1,6 +1,3 @@
-import pandas as pd
-
-from src.comparer import Comparer
 from xml_reader import XmlReader
 from equipments import Breaker
 from tools.logger import log
@@ -13,8 +10,9 @@ def main():
 
     # f_name = r'c:\Users\olega\PycharmProjects\xParser\src\xml\в_соглас.xml'
     # f_name = r'c:\Users\olega\PycharmProjects\xParser\src\xml\ввпс _ГОСТ 1.xml'
-    f_name = r'c:\Users\olega\PycharmProjects\xParser\src\xml\ПС 189 (2 этап рекон.)_test.xml'
+    # f_name = r'c:\Users\olega\PycharmProjects\xParser\src\xml\ПС 189 (2 этап рекон.)_test.xml'
     # f_name = r'c:\Users\olega\PycharmProjects\xParser\src\xml\ПС 189 (2 этап рекон.)_test3.xml'
+    f_name = r'c:\Users\olega\PycharmProjects\xParser\src\xml\ПС 189 (2 этап рекон.)_test4.xml'
 
     xml = XmlReader(f_name)
 

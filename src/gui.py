@@ -1,14 +1,13 @@
 import os
 import glob
 from time import strftime, localtime
-from typing import Tuple, Any
 
 from tkinter import *
 import tkinter.ttk as ttk
 import tkinter.font as tkfont
 
-from src.equipments import Breaker, PowerTransformer, CurrentTransformer
-from src.xml_reader import XmlReader
+from equipments import Breaker, PowerTransformer, CurrentTransformer
+from xml_reader import XmlReader
 
 status_dict = {
     0:  'Успешное завершение',

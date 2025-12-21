@@ -17,10 +17,16 @@ class BaseTag:
         # Проверка, что все нужные тэги есть в xml
         for column in self.columns:
             if column not in df.columns:
-                df[column] = np.nan
+                df[column] = 'EMPTY'
 
         # Задаем количество и порядок колонок как в списке
         self.data = df[self.columns]
+
+        if self.data.empty:
+            self.data = pd.concat([self.data, pd.DataFrame([[np.nan] * self.data.shape[1]], columns=self.data.columns)],
+                                  ignore_index=True)
+
+        self.data.fillna(value='EMPTY', inplace=True)
 
 
 class BaseVoltageTag(BaseTag):
@@ -197,8 +203,11 @@ class TemperatureDependentLimitPointTag(BaseTag):
         self.reformat_table()
 
     def reformat_table(self):
-        self.data['TemperatureDependentLimitPoint.temperature'] = self.data[
-            'TemperatureDependentLimitPoint.temperature'].astype(float)
+        self.data['TemperatureDependentLimitPoint.temperature'] = \
+            self.data['TemperatureDependentLimitPoint.temperature'].replace({'EMPTY': 0})
+
+        self.data['TemperatureDependentLimitPoint.temperature'] = \
+            self.data['TemperatureDependentLimitPoint.temperature'].astype(float)
 
         result = self.data.pivot_table(index='TemperatureDependentLimitPoint.TemperatureDependentLimitTable',
                                        columns='TemperatureDependentLimitPoint.temperature',
@@ -208,6 +217,5 @@ class TemperatureDependentLimitPointTag(BaseTag):
         result.columns = [str(col) for col in result.columns]
 
         self.columns = result.columns
-        self.body = result
+        self.data = result
         self.mRID = 'TemperatureDependentLimitPoint.TemperatureDependentLimitTable'
-
