@@ -26,7 +26,7 @@ class BaseTag:
             self.data = pd.concat([self.data, pd.DataFrame([[np.nan] * self.data.shape[1]], columns=self.data.columns)],
                                   ignore_index=True)
 
-        self.data.fillna(value='EMPTY', inplace=True)
+        self.data = self.data.fillna(value='EMPTY')
 
 
 class BaseVoltageTag(BaseTag):

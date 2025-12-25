@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from abc import ABC, abstractmethod
 from datetime import datetime
 
@@ -297,6 +298,7 @@ class Breaker(BaseEquipment):
                            'SwitchInfo.isSinglePhase', 'SwitchInfo.isUnganged', 'terminal_mRID_br4',
                            'ACDCTerminal.sequenceNumber_br4', 'Terminal.ConnectivityNode_br4', 'terminal_mRID_T2',
                            'ACDCTerminal.sequenceNumber_T2', 'Terminal.ConnectivityNode_T2']
+
         current_limit_columns = ['currentlimit_mRID', 'IdentifiedObject.name_curlimit', 'CurrentLimit.value',
                                  'OperationalLimit.LimitDependencyModel', 'operationallimittype_mRID',
                                  'IdentifiedObject.name_olt', 'OperationalLimitType.acceptableDuration',
@@ -304,6 +306,10 @@ class Breaker(BaseEquipment):
                                  'OperationalLimitSet.Terminal', 'breaker_mRID', 'IdentifiedObject.name_br',
                                  'Switch.ratedCurrent', 'temperaturedependentlimittable_mRID', 'IdentifiedObject.name',
                                  'TemperatureDependentLimitPoint.TemperatureDependentLimitTable']
+        # Для токовых ограничений отдельно выбираем колонки с температурой
+        temperature_points = [col for col in self.compare_2_1.columns if re.fullmatch(r'^[-0-9.]+$', str(col))]
+        current_limit_columns.extend(temperature_points)
+
         voltage_limit_columns = ['voltagelimit_mRID', 'IdentifiedObject.name_voltlimit', 'VoltageLimit.value',
                                  'operationallimittype_mRID', 'IdentifiedObject.name_olt',
                                  'OperationalLimitType.acceptableDuration', 'operationallimitset_mRID',
