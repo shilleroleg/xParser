@@ -139,9 +139,10 @@ class XmlReader:
 
                 # Глубоко вложенный inUseDate ищем отдельно
                 if tag_name == 'Asset.inUseDate':
-                    in_use_dates = self.root.findall(f'.//{{{self.namespaces.get("cim")}}}InUseDate.inUseDate')
+                    in_use_dates = equipment.find(f'.//{{{self.namespaces.get("cim")}}}InUseDate.inUseDate')
 
-                    text_value = in_use_dates[0].text
+                    if in_use_dates is not None:
+                        text_value = in_use_dates.text
 
                 # Сохраняем значение
                 if text_value:

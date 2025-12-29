@@ -6,9 +6,9 @@ from tools.logger import log
 def main():
     log.info('Разбор оборудования')
     # f_name = r'c:\Users\olega\PycharmProjects\xParser\src\xml\ПС 189 (2 этап рекон.).xml'
-    # f_name = r'c:\Users\olega\PycharmProjects\xParser\src\xml\вв пс.xml'
+    f_name = r'c:\Users\olega\PycharmProjects\xParser\src\xml\вв пс.xml'
 
-    f_name = r'c:\Users\olega\PycharmProjects\xParser\src\xml\в_соглас.xml'
+    # f_name = r'c:\Users\olega\PycharmProjects\xParser\src\xml\в_соглас.xml'
     # f_name = r'c:\Users\olega\PycharmProjects\xParser\src\xml\ввпс _ГОСТ 1.xml'
     # f_name = r'c:\Users\olega\PycharmProjects\xParser\src\xml\ПС 189 (2 этап рекон.)_test.xml'
     # f_name = r'c:\Users\olega\PycharmProjects\xParser\src\xml\ПС 189 (2 этап рекон.)_test3.xml'
@@ -21,7 +21,7 @@ def main():
 
     # Второй файл для сравнения
     # f_name_test = r'c:\Users\olega\PycharmProjects\xParser\src\xml\ПС 189 (2 этап рекон.)_test2.xml'
-    f_name_test = r'c:\Users\olega\PycharmProjects\xParser\src\xml\в_соглас.xml'
+    f_name_test = r'c:\Users\olega\PycharmProjects\xParser\src\xml\в_соглас_test2.xml'
 
     xml_test = XmlReader(f_name_test)
 

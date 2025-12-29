@@ -16,7 +16,10 @@ class Comparer:
         log.info('Сравнение запущено')
 
         # Проверяем, что список столбцов одинаковый
-        self._compare_columns_list()
+        ulist_1, ulist_2 = self._compare_columns_list()
+
+        # Если список столбцов разный, то приводим его в соответствие
+        self._garmonize_columns_list(ulist_1, ulist_2)
 
         # Запуск первой сравнялки: сравниваем две таблицы поэлементно
         compare_1_df = self._compare_1()
@@ -58,7 +61,7 @@ class Comparer:
 
         return final_df
 
-    def _compare_columns_list(self) -> None:
+    def _compare_columns_list(self) -> tuple[list[str], list[str]]:
         """Сравнивает список колонок двух таблиц"""
         set_first = set(self.first.columns)
         set_second = set(self.second.columns)
@@ -72,6 +75,27 @@ class Comparer:
             log.error(f'Левая таблица содержит уникальные колонки: {uniq_second}')
         else:
             log.info('Список колонок одинаков')
+
+        return list(uniq_firs), list(uniq_second)
+
+    def _garmonize_columns_list(self, ulist_1: list, ulist_2: list) -> None:
+        """
+        ulist_* список уникальных колонок в сравниваемых датафреймах. Если этот список не пустой,
+        то добавляем недостающие колонки в соответствующий датафрейм
+        :param ulist_1:
+        :param ulist_2:
+        :return: None
+        """
+
+        if len(ulist_1) > 0:
+            for column in ulist_1:
+                self.second[column] = 'EMPTY'
+            log.info(f'Во второй датафрейм добавлены колонки {ulist_1}')
+
+        if len(ulist_2) > 0:
+            for column in ulist_2:
+                self.first[column] = 'EMPTY'
+            log.info(f'В первый датафрейм добавлены колонки {ulist_2}')
 
     def _find_intersect_mRID(self) -> pd.DataFrame:
         """Возвращает датафрейм, в котором помечено какие mRID общие для двух таблиц (Изменено),
@@ -96,8 +120,8 @@ class Comparer:
         first_ = self.first[self.first[self.compare_id].isin(mrid_list)]
         second_ = self.second[self.second[self.compare_id].isin(mrid_list)]
 
-        first_ = first_.fillna('(EMPTY)')
-        second_ = second_.fillna('(EMPTY)')
+        first_ = first_.fillna('EMPTY')
+        second_ = second_.fillna('EMPTY')
 
         result_df = first_[self.compare_id].to_frame()
 
@@ -123,7 +147,7 @@ class Comparer:
         result_column = [col.replace('_compare', '') for col in result_df.columns]
         result_df.columns = result_column
 
-        result_df = result_df.replace('(EMPTY)', '')
+        result_df = result_df.replace('EMPTY', '')
 
         return result_df
 
@@ -137,3 +161,4 @@ class Comparer:
             # sys.exit(-1)
         else:
             log.info(f'Объект не содержит {check_substring}')
+
